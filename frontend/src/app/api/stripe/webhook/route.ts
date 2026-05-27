@@ -41,7 +41,6 @@ export async function POST(request: Request) {
         stripe_subscription_id: subscriptionId,
         status: "active",
         plan: "pro",
-        current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       break;
@@ -53,7 +52,6 @@ export async function POST(request: Request) {
       await supabase.from("subscriptions").update({
         status: isActive ? "active" : "inactive",
         plan: isActive ? "pro" : "free",
-        current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("stripe_subscription_id", sub.id);
       break;
