@@ -10,8 +10,17 @@ export interface LeadInput {
   additionalNotes?: string;
 }
 
+export interface CriterionScore {
+  criterion: string;   // ex: "Adéquation budgétaire"
+  weight: number;      // ex: 30
+  score: number;       // 0–100
+  explanation: string; // 1-2 phrases en français
+}
+
 export interface QualificationResult {
   score: number;       // 0–100
   tier: "Hot" | "Warm" | "Cold";
   reasoning: string;
+  breakdown: CriterionScore[];
+  nextSteps: string[];
 }

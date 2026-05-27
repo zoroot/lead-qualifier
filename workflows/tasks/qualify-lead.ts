@@ -1,6 +1,6 @@
 import { task } from "@trigger.dev/sdk";
 import Anthropic from "@anthropic-ai/sdk";
-import type { LeadInput, QualificationResult } from "../../tools/types";
+import type { LeadInput, QualificationResult, CriterionScore } from "../../tools/types";
 import { scoreToTier } from "../../tools/scoring";
 import { validateLeadInput } from "../../tools/validators";
 import { SYSTEM_PROMPT } from "../instructions/qualifier-prompt";
@@ -15,24 +15,24 @@ export const qualifyLead = task({
     validateLeadInput(payload);
 
     const leadSummary = `
-Company: ${payload.companyName}
-Contact: ${payload.contactName} (${payload.role})
-Email: ${payload.email}
-Company Size: ${payload.companySize} employees
-Budget: ${payload.budget}
-Timeline: ${payload.timeline}
-Use Case: ${payload.useCase}
-Additional Notes: ${payload.additionalNotes || "None"}
+Entreprise : ${payload.companyName}
+Contact : ${payload.contactName} (${payload.role})
+Email : ${payload.email}
+Taille de l'entreprise : ${payload.companySize} employés
+Budget : ${payload.budget}
+Horizon temporel : ${payload.timeline}
+Cas d'usage : ${payload.useCase}
+Notes complémentaires : ${payload.additionalNotes || "Aucune"}
     `.trim();
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 512,
+      max_tokens: 1500,
       system: SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
-          content: `Please qualify the following lead:\n\n${leadSummary}`,
+          content: `Qualifie le prospect suivant :\n\n${leadSummary}`,
         },
       ],
     });
@@ -42,16 +42,24 @@ Additional Notes: ${payload.additionalNotes || "None"}
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error("AI response did not contain valid JSON");
+      throw new Error("La réponse IA ne contient pas de JSON valide");
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as { score: number; reasoning: string };
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      score: number;
+      reasoning: string;
+      breakdown: CriterionScore[];
+      nextSteps: string[];
+    };
+
     const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score))));
 
     return {
       score,
       tier: scoreToTier(score),
       reasoning: parsed.reasoning,
+      breakdown: parsed.breakdown ?? [],
+      nextSteps: parsed.nextSteps ?? [],
     };
   },
 });

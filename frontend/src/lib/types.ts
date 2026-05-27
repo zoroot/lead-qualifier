@@ -10,8 +10,17 @@ export interface LeadInput {
   additionalNotes?: string;
 }
 
+export interface CriterionScore {
+  criterion: string;
+  weight: number;
+  score: number;
+  explanation: string;
+}
+
 export interface QualificationResult {
   score: number;
   tier: "Hot" | "Warm" | "Cold";
   reasoning: string;
+  breakdown: CriterionScore[];
+  nextSteps: string[];
 }
