@@ -1,10 +1,1 @@
-{
-  "ratelimit": [
-    {
-      "path": "/api/qualify",
-      "windowSize": 60,
-      "limit": 5,
-      "action": "block"
-    }
-  ]
-}
+{}
