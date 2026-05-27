@@ -132,23 +132,38 @@ export default function Home() {
 
   function UpgradeButton() {
     const [loading, setLoading] = useState(false);
+    const [upgradeError, setUpgradeError] = useState("");
     async function handleUpgrade() {
       setLoading(true);
-      const url = await createCheckoutSession();
-      if (url) window.location.href = url;
-      else setLoading(false);
+      setUpgradeError("");
+      try {
+        const url = await createCheckoutSession();
+        if (url) window.location.href = url;
+        else {
+          setUpgradeError("Impossible de créer la session. Vérifiez la configuration Stripe.");
+          setLoading(false);
+        }
+      } catch {
+        setUpgradeError("Une erreur est survenue. Veuillez réessayer.");
+        setLoading(false);
+      }
     }
     return (
-      <button
-        onClick={handleUpgrade}
-        disabled={loading}
-        className="group relative w-full py-5 border border-[#d4a853] overflow-hidden disabled:opacity-40"
-      >
-        <span className="absolute inset-0 bg-[#d4a853] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" />
-        <span className="relative z-10 font-mono text-xs tracking-[0.35em] text-[#d4a853] group-hover:text-[#080806] transition-colors duration-300">
-          {loading ? "REDIRECTION..." : "PASSER AU PLAN PRO — 20€/MOIS"}
-        </span>
-      </button>
+      <div className="space-y-3">
+        <button
+          onClick={handleUpgrade}
+          disabled={loading}
+          className="group relative w-full py-5 border border-[#d4a853] overflow-hidden disabled:opacity-40"
+        >
+          <span className="absolute inset-0 bg-[#d4a853] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" />
+          <span className="relative z-10 font-mono text-xs tracking-[0.35em] text-[#d4a853] group-hover:text-[#080806] transition-colors duration-300">
+            {loading ? "REDIRECTION..." : "PASSER AU PLAN PRO — 20€/MOIS"}
+          </span>
+        </button>
+        {upgradeError && (
+          <p className="font-mono text-[10px] text-red-400 tracking-wide text-center">{upgradeError}</p>
+        )}
+      </div>
     );
   }
 
