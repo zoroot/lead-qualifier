@@ -12,66 +12,76 @@ export async function signOut() {
 }
 
 export async function createCheckoutSession(): Promise<string | null> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const supabaseAdmin = createAdminClient();
+    const supabaseAdmin = createAdminClient();
 
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("stripe_customer_id")
-    .eq("user_id", user.id)
-    .single();
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .single();
 
-  let customerId = sub?.stripe_customer_id as string | undefined;
+    let customerId = sub?.stripe_customer_id as string | undefined;
 
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email,
-      metadata: { supabase_user_id: user.id },
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { supabase_user_id: user.id },
+      });
+      customerId = customer.id;
+      await supabaseAdmin.from("subscriptions").upsert({
+        user_id: user.id,
+        stripe_customer_id: customerId,
+        plan: "free",
+        status: "inactive",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?checkout=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
+      subscription_data: {
+        metadata: { supabase_user_id: user.id },
+      },
     });
-    customerId = customer.id;
-    await supabaseAdmin.from("subscriptions").upsert({
-      user_id: user.id,
-      stripe_customer_id: customerId,
-      plan: "free",
-      status: "inactive",
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
+
+    return session.url;
+  } catch (error) {
+    console.error("[createCheckoutSession]", error);
+    return null;
   }
-
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?checkout=success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
-    subscription_data: {
-      metadata: { supabase_user_id: user.id },
-    },
-  });
-
-  return session.url;
 }
 
 export async function createPortalSession(): Promise<string | null> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("stripe_customer_id")
-    .eq("user_id", user.id)
-    .single();
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .single();
 
-  if (!sub?.stripe_customer_id) return null;
+    if (!sub?.stripe_customer_id) return null;
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: sub.stripe_customer_id,
-    return_url: process.env.NEXT_PUBLIC_APP_URL!,
-  });
+    const session = await stripe.billingPortal.sessions.create({
+      customer: sub.stripe_customer_id,
+      return_url: process.env.NEXT_PUBLIC_APP_URL!,
+    });
 
-  return session.url;
+    return session.url;
+  } catch (error) {
+    console.error("[createPortalSession]", error);
+    return null;
+  }
 }
