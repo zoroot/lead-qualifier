@@ -42,12 +42,15 @@ export async function createCheckoutSession(): Promise<string | null> {
       }, { onConflict: "user_id" });
     }
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL non définie");
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?checkout=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
+      success_url: `${appUrl}/?checkout=success`,
+      cancel_url: `${appUrl}/pricing`,
       subscription_data: {
         metadata: { supabase_user_id: user.id },
       },
