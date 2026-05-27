@@ -15,7 +15,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload: LeadInput = await request.json();
+    const body = await request.json();
+    const { companyName, contactName, email, role, useCase } = body ?? {};
+    if (!companyName?.trim() || !contactName?.trim() || !email?.trim() || !role?.trim() || !useCase?.trim()) {
+      return Response.json({ error: "Champs obligatoires manquants." }, { status: 400 });
+    }
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(email)) {
+      return Response.json({ error: "Adresse email invalide." }, { status: 400 });
+    }
+    const payload = body as LeadInput;
 
     const { id } = await tasks.trigger("qualify-lead", payload);
     const run = await runs.poll(id, { pollIntervalMs: 1500 });
