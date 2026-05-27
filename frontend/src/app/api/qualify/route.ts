@@ -14,6 +14,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "Non autorisé." }, { status: 401 });
   }
 
+  // Vérification quota
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("plan, status")
+    .eq("user_id", user.id)
+    .single();
+
+  const isPro = sub?.plan === "pro" && sub?.status === "active";
+
+  if (!isPro) {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from("lead_analyses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", todayStart.toISOString());
+
+    if ((count ?? 0) >= 2) {
+      return Response.json({ error: "daily_limit_reached" }, { status: 429 });
+    }
+  }
+
   try {
     const body = await request.json();
     const { companyName, contactName, email, role, useCase } = body ?? {};

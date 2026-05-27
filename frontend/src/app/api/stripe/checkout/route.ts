@@ -1,23 +1,18 @@
-"use server";
-
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
-import { redirect } from "next/navigation";
 
-export async function signOut() {
-  const supabase = createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
-}
-
-export async function createCheckoutSession(): Promise<string | null> {
+export async function POST() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+
+  if (!user) {
+    return Response.json({ error: "Non autorisé." }, { status: 401 });
+  }
 
   const supabaseAdmin = createAdminClient();
 
+  // Récupère ou crée le Stripe Customer
   const { data: sub } = await supabase
     .from("subscriptions")
     .select("stripe_customer_id")
@@ -52,26 +47,5 @@ export async function createCheckoutSession(): Promise<string | null> {
     },
   });
 
-  return session.url;
-}
-
-export async function createPortalSession(): Promise<string | null> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("stripe_customer_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!sub?.stripe_customer_id) return null;
-
-  const session = await stripe.billingPortal.sessions.create({
-    customer: sub.stripe_customer_id,
-    return_url: process.env.NEXT_PUBLIC_APP_URL!,
-  });
-
-  return session.url;
+  return Response.json({ url: session.url });
 }

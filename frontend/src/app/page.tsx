@@ -3,8 +3,9 @@
 import { useState } from "react";
 import type { LeadInput, QualificationResult } from "@/lib/types";
 import QualificationResultPanel from "@/components/QualificationResult";
+import { createCheckoutSession } from "./actions";
 
-type AppState = "form" | "loading" | "result" | "error";
+type AppState = "form" | "loading" | "result" | "error" | "limit";
 
 const EMPTY: LeadInput = {
   companyName: "",
@@ -113,6 +114,13 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      if (res.status === 429) {
+        const data = await res.json();
+        if (data.error === "daily_limit_reached") {
+          setState("limit");
+          return;
+        }
+      }
       if (!res.ok) throw new Error();
       const data = await res.json();
       setResult(data);
@@ -122,7 +130,55 @@ export default function Home() {
     }
   }
 
+  function UpgradeButton() {
+    const [loading, setLoading] = useState(false);
+    async function handleUpgrade() {
+      setLoading(true);
+      const url = await createCheckoutSession();
+      if (url) window.location.href = url;
+      else setLoading(false);
+    }
+    return (
+      <button
+        onClick={handleUpgrade}
+        disabled={loading}
+        className="group relative w-full py-5 border border-[#d4a853] overflow-hidden disabled:opacity-40"
+      >
+        <span className="absolute inset-0 bg-[#d4a853] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" />
+        <span className="relative z-10 font-mono text-xs tracking-[0.35em] text-[#d4a853] group-hover:text-[#080806] transition-colors duration-300">
+          {loading ? "REDIRECTION..." : "PASSER AU PLAN PRO — 20€/MOIS"}
+        </span>
+      </button>
+    );
+  }
+
   if (state === "loading") return <LoadingState />;
+
+  if (state === "limit") {
+    return (
+      <main className="relative min-h-screen pl-24 pr-8 flex items-center justify-start">
+        <div className="w-full max-w-sm">
+          <p className="font-mono text-[10px] tracking-[0.4em] text-[#d4a853] mb-5">LIMITE ATTEINTE</p>
+          <h2 className="font-display font-300 text-[#ede8de] text-4xl mb-6 leading-tight">
+            2 analyses<br /><em className="not-italic font-700">par jour.</em>
+          </h2>
+          <p className="font-body font-300 text-sm text-[#4e4b44] leading-relaxed mb-8">
+            Vous avez atteint la limite quotidienne du plan gratuit.
+            Passez au plan Pro pour des analyses illimitées.
+          </p>
+          <div className="space-y-4">
+            <UpgradeButton />
+            <button
+              onClick={() => setState("form")}
+              className="block w-full text-center font-mono text-[10px] tracking-[0.3em] text-[#4e4b44] hover:text-[#d4a853] transition-colors duration-200 py-2"
+            >
+              RETOUR AU FORMULAIRE
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (state === "result" && result) {
     return (
